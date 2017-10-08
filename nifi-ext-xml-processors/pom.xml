@@ -120,21 +120,11 @@
             <artifactId>commons-net</artifactId>
         </dependency>
 
-
+        <!-- https://mvnrepository.com/artifact/jaxen/jaxen -->
         <dependency>
-            <groupId>ojdbc7</groupId>
-            <artifactId>ojdbc7</artifactId>
-            <version>1.0.0</version>
-        </dependency>
-        <dependency>
-            <groupId>xdb6</groupId>
-            <artifactId>xdb6</artifactId>
-            <version>1.0.0</version>
-        </dependency>
-        <dependency>
-            <groupId>xmlparserv2</groupId>
-            <artifactId>xmlparserv2</artifactId>
-            <version>1.0.0</version>
+            <groupId>jaxen</groupId>
+            <artifactId>jaxen</artifactId>
+            <version>1.1-beta-6</version>
         </dependency>
 
 
@@ -152,57 +142,6 @@
     </dependencies>
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-install-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>install-external-1</id>
-                        <phase>clean</phase>
-                        <configuration>
-                            <file>${basedir}/libs/ojdbc7.jar</file>
-                            <groupId>ojdbc7</groupId>
-                            <artifactId>ojdbc7</artifactId>
-                            <version>1.0.0</version>
-                            <packaging>jar</packaging>
-                            <generatePom>true</generatePom>
-                        </configuration>
-                        <goals>
-                            <goal>install-file</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>install-external-2</id>
-                        <phase>clean</phase>
-                        <configuration>
-                            <file>${basedir}/libs/xdb6.jar</file>
-                            <groupId>xdb6</groupId>
-                            <artifactId>xdb6</artifactId>
-                            <version>1.0.0</version>
-                            <packaging>jar</packaging>
-                            <generatePom>true</generatePom>
-                        </configuration>
-                        <goals>
-                            <goal>install-file</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>install-external-3</id>
-                        <phase>clean</phase>
-                        <configuration>
-                            <file>${basedir}/libs/xmlparserv2.jar</file>
-                            <groupId>xmlparserv2</groupId>
-                            <artifactId>xmlparserv2</artifactId>
-                            <version>1.0.0</version>
-                            <packaging>jar</packaging>
-                            <generatePom>true</generatePom>
-                        </configuration>
-                        <goals>
-                            <goal>install-file</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

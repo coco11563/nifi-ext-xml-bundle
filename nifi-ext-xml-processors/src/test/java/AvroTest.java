@@ -10,9 +10,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import static org.apache.nifi.processors.ext.xml.ProcessProductXML.createSchema;
-import static org.apache.nifi.processors.ext.xml.ProcessProductXML.processExtend;
-import static org.apache.nifi.processors.ext.xml.ProcessProductXML.processXML;
 
 public class AvroTest {
     private final static String xml = "<product>\n" +
@@ -122,25 +119,7 @@ public class AvroTest {
 
     @Test
     public void TestFieldBuilder() throws DocumentException {
-        Document doc = DocumentHelper.parseText(xml);
-        Element rootElt = doc.getRootElement();
-        Set<String> set = new HashSet<>();
-        Map<String, String> basic = processXML(rootElt.element("pub_basic"),set);
-//        for (String s : basic.keySet()) {
-//            System.out.println(s + " : " + basic.get(s));
-//        }
-        Map<String, String> extend = processXML(processExtend(rootElt,"pub_extend","pub_type_id", "5"), set);
-        basic.putAll(extend);
-        Set<String> newTestSet = new HashSet<>();
-        newTestSet.add("test1");
-        newTestSet.add("nonInclude");
-        Schema newSchema = createSchema(newTestSet, "123");
-        newSchema.getFields().forEach(i -> { //remove the xml field, add the sub title
-            if (!Objects.equals(i.name(), "test1")) {
-                set.add(i.name());
-            }
-        });
-        set.forEach(System.out::println);
+
 
     }
 }

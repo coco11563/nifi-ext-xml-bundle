@@ -11,6 +11,7 @@ import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumWriter;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.nifi.annotation.behavior.DynamicProperty;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.components.PropertyDescriptor;
@@ -22,6 +23,7 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
+import org.apache.xpath.operations.Bool;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.DocumentHelper;
@@ -30,11 +32,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-@Tags({"Avro","XML","Product_extend","Sha0w"})
+// {[id + basic xml + extend xml + type](每个attr一个ff) -> [id + basic field + extend field(option in dynamic field)]}
+@Tags({"Avro","XML","process","Sha0w"})
 @CapabilityDescription("通过解析输入的Avro文件中的XML字段内" +
-        "（xml field）的指定节点（type field），生成新的Avro文件")
-public class ProcessProductXML extends AbstractProcessor {
-    Logger logger = LoggerFactory.getLogger(ProcessProductXML.class);
+        "（xml field）的指定节点（dynamic field），生成新的Avro文件")
+@DynamicProperty(name = "A FlowFile attribute(if <Destination> is set to 'flowfile-attribute'", value = "An XPath expression",
+        description = "If <Destination>='flowfile-attribute' "
+                + "then the FlowFile attribute is set to the result of " +
+                "the XPath Expression.  If <Destination>='flowfile-content' " +
+                "then the FlowFile content is set to the result of the XPath Expression.")
+public class ProcessXMLInAvro extends AbstractProcessor {
+    Logger logger = LoggerFactory.getLogger(ProcessXMLInAvro.class);
     public final static Relationship REL_SUCCESS = new Relationship.Builder()
             .name("sucess")
             .build();
@@ -44,11 +52,11 @@ public class ProcessProductXML extends AbstractProcessor {
             .autoTerminateDefault(true)
             .build();
 
-    public final static PropertyDescriptor XML_FIELD = new PropertyDescriptor.Builder()
-            .name("xmlName")
-            .required(true)
-            .addValidator(Validator.VALID)
-            .description("申明avro中需要解析的XML的字段名称")
+
+    public final static PropertyDescriptor NEED_COMPILE_XML_FIELD = new PropertyDescriptor.Builder()
+            .name("extend xml field name in avro")
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .description("申明avro中需要解析的EXTEND XML字段名称")
             .build();
 
     private static final List<PropertyDescriptor> propertyDescriptors;
@@ -65,7 +73,7 @@ public class ProcessProductXML extends AbstractProcessor {
 
     static {
         List<PropertyDescriptor> lpd = new ArrayList<>();
-        lpd.add(XML_FIELD);
+        lpd.add(NEED_COMPILE_XML_FIELD);
         propertyDescriptors = Collections.unmodifiableList(lpd);
         Set<Relationship> rs = new HashSet<>();
         rs.add(REL_FAILURE);
@@ -75,50 +83,56 @@ public class ProcessProductXML extends AbstractProcessor {
 
     @Override
     public void onTrigger(ProcessContext context, ProcessSession session) throws ProcessException {
-        final String xmlField = context.getProperty(XML_FIELD).getValue();
+        final Map<String, String> dynamicFieldExpressionMap = new HashMap<>();
+        final String extendXmlField = context.getProperty(NEED_COMPILE_XML_FIELD).getValue();
+        //get dynamic field(only with has extend field option)
+        for (final Map.Entry<PropertyDescriptor, String> entry : context.getProperties().entrySet()) {
+            if (entry.getKey().isDynamic()) { //get dynamic properties
+                dynamicFieldExpressionMap.put(entry.getKey().getName() ,entry.getValue());
+            }
+        }
+
         FlowFile flowFile = session.get();
         String type = flowFile.getAttribute("type");
-
+        //{"id","basic xml","extend xml","type"}
         session.read(flowFile, in -> {
             final DataFileStream<GenericRecord> reader = new DataFileStream<>(in, new GenericDatumReader<GenericRecord>());
             GenericRecord currRecord;
             Schema schema = reader.getSchema();
             List<Schema.Field> fieldList = schema.getFields();
-            if (schema.getField(xmlField) == null) {
+
+            if (schema.getField(extendXmlField) == null) {
                 throw new AvroRuntimeException("Not a record: "+this);
             }
             //genericRecord -> map
             final DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<>(schema);
             final DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<>(datumWriter);
-            Set<Map<String, String>> s = new HashSet<>(); //存储所有键值对
-            Map<String, String> basic = null;//存储单个键值对
+
+            Set<Map<String, String>> keyValue = new HashSet<>(); //存储所有键值对
+            Map<String, String> basic;//存储单个键值对
             Set<String> fieldSet = new HashSet<>();//存储所有字段
+            fieldSet.addAll(dynamicFieldExpressionMap.keySet()); //将动态属性内的值加入字段集中
             while (reader.hasNext()) {
                 currRecord = reader.next();//get single gr
-                String xml = currRecord.get(xmlField).toString();
+                String extendXml = currRecord.get(extendXmlField).toString();
+                basic = new HashMap<>();
                 try {
-                    Document document = DocumentHelper.parseText(xml);
-                    Element rootElem = document.getRootElement(); //GET THE ROOT ELEM
-                    basic = processXML(rootElem.element("pub_basic"), fieldSet);
-                    basic.putAll(processXML(processExtend(rootElem,"pub_extend","pub_type_id", type),fieldSet));
+                    basic.putAll(processExtend(extendXml, dynamicFieldExpressionMap));
                 } catch (DocumentException e) {
                     e.printStackTrace();
                 }
-                if (basic == null) {
-                    basic = new HashMap<>();
-                }
                 for (Schema.Field field : fieldList) {
-                    if (!Objects.equals(field.name(), xmlField)) {
-                        basic.put(field.name(), currRecord.get(field.name()).toString());
+                    if (!Objects.equals(field.name(), extendXmlField)) {
+                        basic.put(field.name(), currRecord.get(field.name()).toString()); //将Avro内其他值加入其中
                     }
                 }
-                s.add(basic);
+                keyValue.add(basic);
             }
-            schema.getFields().forEach(i -> { //remove the xml field, add the sub title
-                if (!Objects.equals(i.name(), xmlField)) {
-                    fieldSet.add(i.name());
+            for (Schema.Field field : fieldList) {
+                if (!Objects.equals(field.name(), extendXmlField)) {
+                    fieldSet.add(field.name());
                 }
-            });
+            }
             Schema newSchema = createSchema(fieldSet, type);
 
             //passing test
@@ -126,7 +140,7 @@ public class ProcessProductXML extends AbstractProcessor {
             final GenericRecord rec = new GenericData.Record(newSchema);
             ff = session.write(ff, out -> {
                 final DataFileWriter<GenericRecord> dfw = dataFileWriter.create(newSchema, out);
-                for (Map<String,String> m : s) {
+                for (Map<String,String> m : keyValue) {
                     for (String key : m.keySet()) {
                         rec.put(key, m.get(key));
                     }
@@ -139,25 +153,14 @@ public class ProcessProductXML extends AbstractProcessor {
         session.remove(flowFile);
     }
 
-    public static Element processExtend(Element node, String name, String type,String val) {
-        List<Element> ele = node.elements(name);
-        for (Element element : ele) {
-            if (Objects.equals(element.attributeValue(type), val)) {
-                return element;
-            }
+    public static Map<String, String> processExtend(String xml, Map<String,String> expressionMap) throws DocumentException {
+        Document doc = DocumentHelper.parseText(xml);
+        Element rootElem = doc.getRootElement();
+        Map<String, String> keyValue = new HashMap<>();
+        for (String name : expressionMap.keySet()) {
+            keyValue.put(name, rootElem.selectSingleNode(expressionMap.get(name)).getText());
         }
-        return null;
-    }
-    public static Map<String, String> processXML(Element element, Set<String> set) {
-        Map<String,String> eleMap = new HashMap<>();
-        Iterator<Element> iterator = element.elementIterator();
-        Element temp;
-        while (iterator.hasNext()) {
-            temp = iterator.next();
-            set.add(temp.getName());
-            eleMap.put(temp.getName(), temp.getStringValue());
-        }
-        return eleMap;
+        return keyValue;
     }
 
     public static Schema createSchema(Set<String> set, String type) {
@@ -168,5 +171,4 @@ public class ProcessProductXML extends AbstractProcessor {
         }
         return builder.endRecord();
     }
-
 }

@@ -7,7 +7,7 @@ import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.processors.ext.xml.ProcessProductXML;
+import org.apache.nifi.processors.ext.xml.ProcessXMLInAvro;
 import org.apache.nifi.processors.ext.xml.SeparateAvroByXML;
 import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
@@ -34,7 +34,7 @@ public class XMLProcessorTest {
 
     final private TestRunner testRunnerSPX = TestRunners.newTestRunner(new SeparateAvroByXML());
 
-    final private TestRunner testRunnerPPX = TestRunners.newTestRunner(new ProcessProductXML());
+    final private TestRunner testRunnerPPX = TestRunners.newTestRunner(new ProcessXMLInAvro());
 
     final private MockFlowFile mff = null;
 
@@ -71,22 +71,21 @@ public class XMLProcessorTest {
 //        GenericRecord result=reader.read(null,decoder);
 //        System.out.println(result.getSchema());
         testRunnerSPX.setProperty(SeparateAvroByXML.XML_DECODE_FIELD,"need_d");
-        testRunnerSPX.setProperty(SeparateAvroByXML.XML_TYPE_FIELD,"product.pub_basic.pub_type_id");
+        testRunnerSPX.setProperty(SeparateAvroByXML.XML_TYPE_FIELD,"/product/pub_basic/pub_type_id");
+        testRunnerSPX.setProperty(SeparateAvroByXML.XML_COMMON_FIELD, "/product/pub_basic");
+        testRunnerSPX.setProperty(SeparateAvroByXML.XML_UNIQUE_FIELD, "/product/pub_extend");
+        testRunnerSPX.setProperty(SeparateAvroByXML.XML_TYPE_FIELD_NAME, "pub_type_id");
+
         testRunnerSPX.enqueue(new ByteArrayInputStream(buffer));
         testRunnerSPX.run();
 
-        testRunnerPPX.setProperty(ProcessProductXML.XML_FIELD, "need_d");
+
+        testRunnerPPX.setProperty(ProcessXMLInAvro.NEED_COMPILE_XML_FIELD, "need_d");
 
 
         List<MockFlowFile> mff = testRunnerSPX.getFlowFilesForRelationship(SeparateAvroByXML.REL_SUCCESS);
         for (FlowFile ff : mff) {
-            testRunnerPPX.enqueue(ff);
-            testRunnerPPX.run();
-            List<MockFlowFile> mff2 = testRunnerPPX.getFlowFilesForRelationship(ProcessProductXML.REL_SUCCESS);
-            for (MockFlowFile flowFile : mff2) {
-                System.out.println("\n");
-                System.out.println(flowFile.getAttribute("type"));
-            }
+            System.out.println(ff.toString());
         }
     }
 
