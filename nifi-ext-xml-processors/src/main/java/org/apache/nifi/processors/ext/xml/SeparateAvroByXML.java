@@ -3,6 +3,7 @@ package org.apache.nifi.processors.ext.xml;
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
+import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
@@ -39,7 +40,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
         "字段，并在该XML中寻找一个你输入的代表路径的XML字段名称，并通过这个字段名称将输入的Avro文件分成不同的几份")
 @WritesAttribute(attribute = "type", description = "This processor adds user-defined attributes if the <Destination> property is set to flowfile-attribute.")
 public class SeparateAvroByXML extends AbstractProcessor{
-    Logger logger = LoggerFactory.getLogger(SeparateAvroByXML.class);
+    public static final String UTF8_BOM = "\uFEFF";     //http://www.rgagnon.com/javadetails/java-handle-utf8-file-with-bom.html
+    private static Logger logger = LoggerFactory.getLogger(SeparateAvroByXML.class);
     public static final PropertyDescriptor XML_DECODE_FIELD = new PropertyDescriptor.Builder()
             .required(true)
             .addValidator(StandardValidators.NON_BLANK_VALIDATOR)
@@ -140,19 +142,13 @@ public class SeparateAvroByXML extends AbstractProcessor{
                while (reader.hasNext()) {
                    currRecord = reader.next();
                    String xml = currRecord.get(xmlField).toString();
-                   String key = null;
-                   try {
-                       key = getXmlValue(xml,xmlTypeField);
-                   } catch (DocumentException e) {
-                       e.printStackTrace();
-                   }
-
-                    if (grMap.get(key) != null) {
-                        grMap.get(key).add(currRecord);
-                    } else {
-                       grMap.put(key,new ConcurrentLinkedQueue<>());
+                   String key = getXmlValue(xml,xmlTypeField);
+                   if (grMap.get(key) != null) {
                        grMap.get(key).add(currRecord);
-                    }
+                   } else {
+                      grMap.put(key,new ConcurrentLinkedQueue<>());
+                      grMap.get(key).add(currRecord);
+                   }
                }
                final DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<>(schema);
                final DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<>(datumWriter);
@@ -165,25 +161,18 @@ public class SeparateAvroByXML extends AbstractProcessor{
                        final DataFileWriter<GenericRecord> dfw = dataFileWriter.create(newBuildSchema, out);
                        for (GenericRecord genericRecord : gr) {
                            String xml = genericRecord.get(xmlField).toString();
-                           try {
-                               rec.put("xmlCommonField", getXml(xml, xmlCommonField));
-                               rec.put("xmlUniqueField", getXml(xml, xmlUniqueField + "[@" + xmlTypeFieldName+ "=\"" + key + "\"]"));
-                               rec.put("type", key);
-                               for (Schema.Field field : schema.getFields()) {
-                                   if (!Objects.equals(field.name(), xmlField)) {
-                                       rec.put(field.name(),genericRecord.get(field.name()));
-                                   }
+                           rec.put("xmlCommonField", getXml(xml, xmlCommonField));
+                           rec.put("xmlUniqueField", getXml(xml, xmlUniqueField + "[@" + xmlTypeFieldName+ "=\"" + key + "\"]"));
+                           rec.put("type", key);
+                           for (Schema.Field field : schema.getFields()) {
+                               if (!Objects.equals(field.name(), xmlField)) {
+                                   rec.put(field.name(),genericRecord.get(field.name()));
                                }
-                           } catch (DocumentException e) {
-                               e.printStackTrace();
-                               session.remove(ffList);
-                               session.transfer(flowFile, REL_FAILURE);
                            }
                            dfw.append(rec);
                        }
                        dfw.close();
                    });
-                   logger.debug(key);
                    ff = session.putAttribute(ff, "type", key); // 一定要赋值回一个flowFile变量：
                    ffList.add(ff);
                }
@@ -191,20 +180,48 @@ public class SeparateAvroByXML extends AbstractProcessor{
            session.transfer(ffList,REL_SUCCESS);
            session.remove(flowFile);
        } catch (Exception e) {
-           e.printStackTrace();
            session.remove(ffList);
            session.transfer(flowFile, REL_FAILURE);
+           e.printStackTrace();
        }
     }
+
+
     //using xpath test pass
-    private static String getXmlValue(String xml, String path) throws DocumentException {
-        Document doc = DocumentHelper.parseText(xml);
+    private static String getXmlValue(String xml, String path) {
+        Document doc = null;
+        try {
+            doc = DocumentHelper.parseText(xml);
+        } catch (DocumentException e) {
+            try {
+                //0x.
+                String af = CheckUnicodeString(xml);
+                //&#.
+                doc = DocumentHelper.parseText(af.replaceAll("&#.", " ").replaceAll(UTF8_BOM," "));
+            } catch (DocumentException e1) {
+                logger.error(e1.getMessage());
+            }
+            logger.error(e.getMessage());
+        }
+        assert doc != null;
         Element temp = doc.getRootElement();
         return temp.selectSingleNode(path).getText();
     }
     //using xpath test pass
-    private static String getXml(String xml, String path) throws DocumentException {
-        Document doc = DocumentHelper.parseText(xml);
+    private static String getXml(String xml, String path) {
+        Document doc = null;
+        try {
+            doc = DocumentHelper.parseText(xml);
+        } catch (DocumentException e) {
+            try {
+                String af = CheckUnicodeString(xml);
+                doc = DocumentHelper.parseText(af.replaceAll("&#.", " ").replaceAll(UTF8_BOM," "));
+            } catch (DocumentException e1) {
+//                e1.printStackTrace();
+            }
+//            e.printStackTrace();
+        }
+        assert doc != null;
         Element temp = doc.getRootElement();
         return temp.selectSingleNode(path).asXML();
     }
@@ -227,5 +244,16 @@ public class SeparateAvroByXML extends AbstractProcessor{
         }
         old_field.addAll(set);
         return createSchema(old_field, type);
+    }
+    public static String CheckUnicodeString(String value) {
+        char[] valueArr = value.toCharArray();
+        for (int i = 0; i < value.length(); ++i) {
+            if (valueArr[i] > 0xFFFD) {
+                valueArr[i] = ' ';
+            } else if (valueArr[i] < 0x20) {
+                valueArr[i]= ' ';
+            }
+        }
+        return String.copyValueOf(valueArr);
     }
 }

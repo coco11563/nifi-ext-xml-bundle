@@ -1,6 +1,8 @@
 package xml;
 
 import org.apache.avro.Schema;
+import org.apache.avro.file.DataFileReader;
+import org.apache.avro.file.DataFileStream;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
@@ -15,10 +17,8 @@ import org.apache.nifi.util.TestRunners;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -45,24 +45,20 @@ public class XMLProcessorTest {
             new GenericDatumWriter<>());
 
     private byte[] buffer ;
+    private DataFileReader dr;
     @Before
     public void init() throws IOException {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        writer.create(grSchema, out);
-        gr = new GenericData.Record(grSchema);
-        gr.put("testfield1","5");
-        gr.put("testfield2","5");
-        gr.put("need_d",xml_5);
-        writer.append(gr);
-        gr = new GenericData.Record(grSchema);
-        gr.put("testfield1","4");
-        gr.put("testfield2","4");
-        gr.put("need_d",xml_4);
-        writer.append(gr);
-        writer.flush();
-        out.close();
-        buffer = out.toByteArray();
+        dr = new DataFileReader<GenericData>(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources\\2269418313656416.avro"), new GenericDatumReader<>());
         //done gr init
+        File f = new File(
+                "C:\\Users\\sha0w\\IdeaProjects\\" +
+                        "nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources" +
+                        "\\2269418313656416.avro");
+        FileInputStream fis = new FileInputStream(f);
+        BufferedInputStream bfs = new BufferedInputStream(fis);
+
+        DataFileStream<GenericRecord> dfs = new DataFileStream<GenericRecord>(bfs , new GenericDatumReader<GenericRecord>());
+        System.out.println(dfs.getSchema().getFields().size());
     }
     @Test
     public void testRunnerSPX() throws IOException {
@@ -70,13 +66,34 @@ public class XMLProcessorTest {
 //        Decoder decoder= DecoderFactory.get().binaryDecoder(buffer,null);
 //        GenericRecord result=reader.read(null,decoder);
 //        System.out.println(result.getSchema());
-        testRunnerSPX.setProperty(SeparateAvroByXML.XML_DECODE_FIELD,"need_d");
+        testRunnerSPX.setProperty(SeparateAvroByXML.XML_DECODE_FIELD,"product_xml");
         testRunnerSPX.setProperty(SeparateAvroByXML.XML_TYPE_FIELD,"/product/pub_basic/pub_type_id");
         testRunnerSPX.setProperty(SeparateAvroByXML.XML_COMMON_FIELD, "/product/pub_basic");
         testRunnerSPX.setProperty(SeparateAvroByXML.XML_UNIQUE_FIELD, "/product/pub_extend");
         testRunnerSPX.setProperty(SeparateAvroByXML.XML_TYPE_FIELD_NAME, "pub_type_id");
+//        File f = new File(
+//                "C:\\Users\\sha0w\\IdeaProjects\\" +
+//                        "nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources" +
+//                        "\\2269418313656416.avro");
+        List<File> fileList = new ArrayList<>();
 
-        testRunnerSPX.enqueue(new ByteArrayInputStream(buffer));
+//        fileList.add(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources\\2254594220071158.avro"));
+//        fileList.add(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources\\2254594220071158 (1).avro"));
+//        fileList.add(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources\\2254594220071158 (2).avro"));
+//        fileList.add(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources\\2254594220071158 (3).avro"));
+//        fileList.add(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources\\2254594220071158 (4).avro"));
+//        fileList.add(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources\\2254594220071158 (5).avro"));
+        fileList.add(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources\\2254594220071158 (6).avro"));
+
+//        FileInputStream fis = new FileInputStream(f);
+//        BufferedInputStream bfs = new BufferedInputStream(fis);
+
+//        testRunnerSPX.enqueue(bfs);
+        for (File fi : fileList) {
+            FileInputStream fisL = new FileInputStream(fi);
+            BufferedInputStream bfsL = new BufferedInputStream(fisL);
+            testRunnerSPX.enqueue(bfsL);
+        }
         testRunnerSPX.run();
 
 
