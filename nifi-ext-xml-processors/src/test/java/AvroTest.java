@@ -1,10 +1,17 @@
 import org.apache.avro.Schema;
+import org.apache.avro.file.DataFileReader;
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.DatumReader;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.DocumentHelper;
 import org.dom4j.Element;
 import org.junit.Test;
+import sun.net.www.content.text.Generic;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -118,8 +125,17 @@ public class AvroTest {
             "</product>\n";
 
     @Test
-    public void TestFieldBuilder() throws DocumentException {
-
-
+    public void TestFieldBuilder() throws DocumentException, IOException {
+        DataFileReader<GenericRecord> dfr = new DataFileReader<>(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\test\\resources\\会议论文.avro"), new GenericDatumReader<>());
+        Schema grSchema = dfr.getSchema();
+        GenericRecord currGR = null;
+        while (dfr.hasNext()) {
+            currGR = dfr.next();
+            Object extendXml = currGR.get("product_xml");
+            if (extendXml != null) {
+                System.out.println(extendXml);
+                break;
+            }
+        }
     }
 }

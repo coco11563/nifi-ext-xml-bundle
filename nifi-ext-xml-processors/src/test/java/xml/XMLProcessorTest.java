@@ -11,6 +11,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processors.ext.xml.ProcessXMLInAvro;
 import org.apache.nifi.processors.ext.xml.SeparateAvroByXML;
+import org.apache.nifi.processors.ext.xml.SeparateAvroInXML;
 import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
@@ -32,7 +33,7 @@ public class XMLProcessorTest {
 
     final private InputStream flowFile = null;
 
-    final private TestRunner testRunnerSPX = TestRunners.newTestRunner(new SeparateAvroByXML());
+    final private TestRunner testRunnerSPX = TestRunners.newTestRunner(new SeparateAvroInXML());
 
     final private TestRunner testRunnerPPX = TestRunners.newTestRunner(new ProcessXMLInAvro());
 
@@ -68,9 +69,9 @@ public class XMLProcessorTest {
 //        System.out.println(result.getSchema());
         testRunnerSPX.setProperty(SeparateAvroByXML.XML_DECODE_FIELD,"product_xml");
         testRunnerSPX.setProperty(SeparateAvroByXML.XML_TYPE_FIELD,"/product/pub_basic/pub_type_id");
-        testRunnerSPX.setProperty(SeparateAvroByXML.XML_COMMON_FIELD, "/product/pub_basic");
-        testRunnerSPX.setProperty(SeparateAvroByXML.XML_UNIQUE_FIELD, "/product/pub_extend");
-        testRunnerSPX.setProperty(SeparateAvroByXML.XML_TYPE_FIELD_NAME, "pub_type_id");
+//        testRunnerSPX.setProperty(SeparateAvroByXML.XML_COMMON_FIELD, "/product/pub_basic");
+//        testRunnerSPX.setProperty(SeparateAvroByXML.XML_UNIQUE_FIELD, "/product/pub_extend");
+//        testRunnerSPX.setProperty(SeparateAvroByXML.XML_TYPE_FIELD_NAME, "pub_type_id");
 //        File f = new File(
 //                "C:\\Users\\sha0w\\IdeaProjects\\" +
 //                        "nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources" +
