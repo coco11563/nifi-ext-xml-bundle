@@ -58,12 +58,6 @@ public class ProcessXMLInAvro extends AbstractProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .description("申明avro中需要解析的EXTEND XML字段名称")
             .build();
-    public final static PropertyDescriptor NEED_MULTI_COMPILE_XML_FILED = new PropertyDescriptor.Builder()
-            .name("multi-compile xml field")
-            .description("申明需要多重解析的xpath字段，使用逗号分割，使用冒号作为KeyValue分割")
-            .required(false)
-            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
-            .build();
 
     private static final List<PropertyDescriptor> propertyDescriptors;
     private static final Set<Relationship> relationships;
@@ -80,7 +74,6 @@ public class ProcessXMLInAvro extends AbstractProcessor {
     static {
         List<PropertyDescriptor> lpd = new ArrayList<>();
         lpd.add(NEED_COMPILE_XML_FIELD);
-        lpd.add(NEED_MULTI_COMPILE_XML_FILED);
         propertyDescriptors = Collections.unmodifiableList(lpd);
         Set<Relationship> rs = new HashSet<>();
         rs.add(REL_FAILURE);
