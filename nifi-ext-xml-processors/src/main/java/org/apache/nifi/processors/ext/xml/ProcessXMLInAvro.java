@@ -1,5 +1,6 @@
 package org.apache.nifi.processors.ext.xml;
 
+import net.sf.saxon.tree.tiny.TinyNodeImpl;
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
@@ -15,7 +16,6 @@ import org.apache.nifi.annotation.behavior.DynamicProperty;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.components.PropertyDescriptor;
-import org.apache.nifi.components.Validator;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
@@ -23,15 +23,15 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
-import org.apache.xpath.operations.Bool;
-import org.dom4j.Document;
-import org.dom4j.DocumentException;
-import org.dom4j.DocumentHelper;
-import org.dom4j.Element;
+import org.dom4j.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+
+import static org.apache.nifi.processors.ext.xml.SeparateAvroInXML.CheckUnicodeString;
+import static org.apache.nifi.processors.ext.xml.SeparateAvroInXML.UTF8_BOM;
+
 // {[id + basic xml + extend xml + type](每个attr一个ff) -> [id + basic field + extend field(option in dynamic field)]}
 @Tags({"Avro","XML","process","Sha0w"})
 @CapabilityDescription("通过解析输入的Avro文件中的XML字段内" +
@@ -58,6 +58,12 @@ public class ProcessXMLInAvro extends AbstractProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .description("申明avro中需要解析的EXTEND XML字段名称")
             .build();
+    public final static PropertyDescriptor NEED_MULTI_COMPILE_XML_FILED = new PropertyDescriptor.Builder()
+            .name("multi-compile xml field")
+            .description("申明需要多重解析的xpath字段，使用逗号分割，使用冒号作为KeyValue分割")
+            .required(false)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
 
     private static final List<PropertyDescriptor> propertyDescriptors;
     private static final Set<Relationship> relationships;
@@ -74,13 +80,19 @@ public class ProcessXMLInAvro extends AbstractProcessor {
     static {
         List<PropertyDescriptor> lpd = new ArrayList<>();
         lpd.add(NEED_COMPILE_XML_FIELD);
+        lpd.add(NEED_MULTI_COMPILE_XML_FILED);
         propertyDescriptors = Collections.unmodifiableList(lpd);
         Set<Relationship> rs = new HashSet<>();
         rs.add(REL_FAILURE);
         rs.add(REL_SUCCESS);
         relationships = Collections.unmodifiableSet(rs);
     }
-
+    @Override
+    protected PropertyDescriptor getSupportedDynamicPropertyDescriptor(final String propertyDescriptorName) {
+        return new PropertyDescriptor.Builder()
+                .name(propertyDescriptorName).expressionLanguageSupported(false)
+                .addValidator(StandardValidators.NON_BLANK_VALIDATOR).required(false).dynamic(true).build();
+    }
     @Override
     public void onTrigger(ProcessContext context, ProcessSession session) throws ProcessException {
         final Map<String, String> dynamicFieldExpressionMap = new HashMap<>();
@@ -100,7 +112,6 @@ public class ProcessXMLInAvro extends AbstractProcessor {
             GenericRecord currRecord;
             Schema schema = reader.getSchema();
             List<Schema.Field> fieldList = schema.getFields();
-
             if (schema.getField(extendXmlField) == null) {
                 throw new AvroRuntimeException("Not a record: "+this);
             }
@@ -122,7 +133,7 @@ public class ProcessXMLInAvro extends AbstractProcessor {
                     e.printStackTrace();
                 }
                 for (Schema.Field field : fieldList) {
-                    if (!Objects.equals(field.name(), extendXmlField)) {
+                    if (!Objects.equals(field.name(), extendXmlField) || Objects.equals(field.name(), "type")) {
                         basic.put(field.name(), currRecord.get(field.name()).toString()); //将Avro内其他值加入其中
                     }
                 }
@@ -142,6 +153,7 @@ public class ProcessXMLInAvro extends AbstractProcessor {
                 final DataFileWriter<GenericRecord> dfw = dataFileWriter.create(newSchema, out);
                 for (Map<String,String> m : keyValue) {
                     for (String key : m.keySet()) {
+                        logger.error(key + " : " + m.get(key));
                         rec.put(key, m.get(key));
                     }
                     dfw.append(rec);
@@ -154,15 +166,58 @@ public class ProcessXMLInAvro extends AbstractProcessor {
     }
 
     public static Map<String, String> processExtend(String xml, Map<String,String> expressionMap) throws DocumentException {
-        Document doc = DocumentHelper.parseText(xml);
+        Document doc;
+        try {
+            doc = DocumentHelper.parseText(xml);
+        } catch (Exception e) {
+            String af = CheckUnicodeString(xml);
+            doc = DocumentHelper.parseText(af.replaceAll("&#.", " ").replaceAll(UTF8_BOM," "));
+        }
         Element rootElem = doc.getRootElement();
         Map<String, String> keyValue = new HashMap<>();
         for (String name : expressionMap.keySet()) {
-            keyValue.put(name, rootElem.selectSingleNode(expressionMap.get(name)).getText());
+            String xpath = expressionMap.get(name);
+            StringBuilder sb = new StringBuilder();
+                if (!xpath.contains("#")) {
+                    try {
+                        List no = rootElem.selectNodes(xpath);
+                        if (no.size() > 1) {
+                            for (int i = 0; i < no.size(); i++) {
+                                Object o = no.get(i);
+                                sb.append(((Node) (o)).getText());
+                                if (i < no.size() - 1) {
+                                    sb.append("#");
+                                }
+                            }
+                            keyValue.put(name, sb.toString());
+                        } else {
+                            keyValue.put(name, ((Node) (no.get(0))).getText());
+                        }
+                    } catch (IndexOutOfBoundsException e) {
+                        keyValue.put(name, null);
+                    } catch (NullPointerException e) {
+                        keyValue.put(name, sb.toString());
+                    }
+                } else {
+
+                        String[] xpaths = xpath.split("#");
+                        for (int i = 0; i < xpaths.length; i++) {
+                            try {
+                                sb.append(rootElem.selectSingleNode(xpaths[i]).getText());
+                            } catch (Exception e) {
+                                sb.append("null");
+                            }
+                            if (i < xpaths.length - 1) {
+                                sb.append("#");
+                            }
+                        }
+                        keyValue.put(name, sb.toString());
+
+                }
+
         }
         return keyValue;
     }
-
     public static Schema createSchema(Set<String> set, String type) {
         String tableName = StringUtils.isEmpty(type) ? "NiFi_ProcessProductXML_Record" :  "NiFi_ProcessProductXML_Record_" + type;
         final SchemaBuilder.FieldAssembler<Schema> builder = SchemaBuilder.record(tableName).namespace("any.data").fields();

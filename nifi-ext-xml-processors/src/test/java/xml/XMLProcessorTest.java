@@ -67,8 +67,8 @@ public class XMLProcessorTest {
 //        Decoder decoder= DecoderFactory.get().binaryDecoder(buffer,null);
 //        GenericRecord result=reader.read(null,decoder);
 //        System.out.println(result.getSchema());
-        testRunnerSPX.setProperty(SeparateAvroByXML.XML_DECODE_FIELD,"product_xml");
-        testRunnerSPX.setProperty(SeparateAvroByXML.XML_TYPE_FIELD,"/product/pub_basic/pub_type_id");
+//        testRunnerSPX.setProperty(SeparateAvroByXML.XML_DECODE_FIELD,"product_xml");
+//        testRunnerSPX.setProperty(SeparateAvroByXML.XML_TYPE_FIELD,"/product/pub_basic/pub_type_id");
 //        testRunnerSPX.setProperty(SeparateAvroByXML.XML_COMMON_FIELD, "/product/pub_basic");
 //        testRunnerSPX.setProperty(SeparateAvroByXML.XML_UNIQUE_FIELD, "/product/pub_extend");
 //        testRunnerSPX.setProperty(SeparateAvroByXML.XML_TYPE_FIELD_NAME, "pub_type_id");
@@ -84,27 +84,46 @@ public class XMLProcessorTest {
 //        fileList.add(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources\\2254594220071158 (3).avro"));
 //        fileList.add(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources\\2254594220071158 (4).avro"));
 //        fileList.add(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources\\2254594220071158 (5).avro"));
-        fileList.add(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources\\2254594220071158 (6).avro"));
+
+//        fileList.add(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources\\2254594220071158 (6).avro"));
 
 //        FileInputStream fis = new FileInputStream(f);
 //        BufferedInputStream bfs = new BufferedInputStream(fis);
 
 //        testRunnerSPX.enqueue(bfs);
-        for (File fi : fileList) {
-            FileInputStream fisL = new FileInputStream(fi);
-            BufferedInputStream bfsL = new BufferedInputStream(fisL);
-            testRunnerSPX.enqueue(bfsL);
-        }
-        testRunnerSPX.run();
+//        for (File fi : fileList) {
+//            FileInputStream fisL = new FileInputStream(fi);
+//            BufferedInputStream bfsL = new BufferedInputStream(fisL);
+//            testRunnerSPX.enqueue(bfsL);
+//        }
+//        testRunnerSPX.run();
+//
+//
+//        testRunnerPPX.setProperty(ProcessXMLInAvro.NEED_COMPILE_XML_FIELD, "need_d");
 
 
-        testRunnerPPX.setProperty(ProcessXMLInAvro.NEED_COMPILE_XML_FIELD, "need_d");
-
-
-        List<MockFlowFile> mff = testRunnerSPX.getFlowFilesForRelationship(SeparateAvroByXML.REL_SUCCESS);
-        for (FlowFile ff : mff) {
-            System.out.println(ff.toString());
-        }
+//        List<MockFlowFile> mff = testRunnerSPX.getFlowFilesForRelationship(SeparateAvroByXML.REL_SUCCESS);
+//        for (FlowFile ff : mff) {
+//            System.out.println(ff.toString());
+//        }
+        testRunnerPPX.setProperty(ProcessXMLInAvro.NEED_COMPILE_XML_FIELD,"product_xml");
+        testRunnerPPX.setProperty("sample1_pub_id","/product/pub_basic/pub_id");
+        testRunnerPPX.setProperty("sample2_doi","/product/pub_extend[@pub_type_id=\"4\"]/doi");
+        testRunnerPPX.setProperty("sample3_missing","/product/pub_basic/pub_missing");
+//        testRunnerPPX.setProperty("sample3_author","/product/pub_basic/authors/author/psn_name)");
+        testRunnerPPX.setProperty("sample_author","/product/pub_basic/authors/*/psn_name");
+        testRunnerPPX.setProperty("sample_concat","/product/pub_basic/list_ei_source#" +
+                "/product/pub_basic/list_sci_source#" +
+                "/product/pub_basic/list_ssci_source#" +
+                "/product/pub_basic/list_istp_source#" +
+                "/product/pub_basic/list_ei#list_sci#" +
+                "/product/pub_basic/list_ssci#" +
+                "/product/pub_basic/list_istp");
+        File f = new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\test\\resources\\2254594220071158 (6).avro");
+        FileInputStream fis = new FileInputStream(f);
+        BufferedInputStream bfs = new BufferedInputStream(fis);
+        testRunnerPPX.enqueue(bfs);
+        testRunnerPPX.run();
     }
 
     private final static String xml_5 = "<product>\n" +

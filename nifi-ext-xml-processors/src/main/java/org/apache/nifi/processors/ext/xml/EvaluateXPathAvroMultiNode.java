@@ -17,16 +17,15 @@
 package org.apache.nifi.processors.ext.xml;
 
 import net.sf.saxon.lib.NamespaceConstant;
+import net.sf.saxon.tree.tiny.TinyElementImpl;
 import net.sf.saxon.tree.tiny.TinyNodeImpl;
+import net.sf.saxon.tree.tiny.TinyTextImpl;
 import net.sf.saxon.xpath.XPathEvaluator;
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileStream;
-import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericDatumReader;
-import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.DatumWriter;
 import org.apache.nifi.annotation.behavior.*;
 import org.apache.nifi.annotation.behavior.InputRequirement.Requirement;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
@@ -43,12 +42,17 @@ import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.io.InputStreamCallback;
 import org.apache.nifi.processor.io.OutputStreamCallback;
 import org.apache.nifi.processor.util.StandardValidators;
+import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
 import javax.xml.namespace.QName;
 import javax.xml.transform.*;
 import javax.xml.transform.stream.StreamResult;
-import javax.xml.xpath.*;
+import javax.xml.xpath.XPathExpression;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
+import javax.xml.xpath.XPathFactoryConfigurationException;
+import javax.xml.xpath.XPathConstants;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -92,6 +96,12 @@ public class EvaluateXPathAvroMultiNode extends AbstractProcessor {
             .defaultValue(DESTINATION_CONTENT)
             .build();
 
+    public static final PropertyDescriptor XML_TYPE_FIELD = new PropertyDescriptor.Builder()
+            .required(true)
+            .addValidator(StandardValidators.NON_BLANK_VALIDATOR)
+            .description("输入这个字段中代表类型的字段，要求使用XPATH语法")
+            .name("xml type field")
+            .build();
     public static final PropertyDescriptor RETURN_TYPE = new PropertyDescriptor.Builder()
             .name("Return Type")
             .description("Indicates the desired return type of the Xpath expressions.  Selecting 'auto-detect' will set the return type to 'nodeset' "
@@ -117,12 +127,7 @@ public class EvaluateXPathAvroMultiNode extends AbstractProcessor {
                     + "when the XPath cannot be evaluated against the content of the FlowFile; for instance, if the FlowFile is not valid XML, or if the Return "
                     + "Type is 'nodeset' and the XPath evaluates to multiple nodes")
             .build();
-    public static final PropertyDescriptor XML_DECODE_FIELD = new PropertyDescriptor.Builder()
-            .required(true)
-            .addValidator(StandardValidators.NON_BLANK_VALIDATOR)
-            .description("输入这个avro中你需要解析的XML字段")
-            .name("xml decode field")
-            .build();
+
     private Set<Relationship> relationships;
     private List<PropertyDescriptor> properties;
 
@@ -143,7 +148,7 @@ public class EvaluateXPathAvroMultiNode extends AbstractProcessor {
         final List<PropertyDescriptor> properties = new ArrayList<>();
         properties.add(DESTINATION);
         properties.add(RETURN_TYPE);
-        properties.add(XML_DECODE_FIELD);
+        properties.add(XML_TYPE_FIELD);
         this.properties = Collections.unmodifiableList(properties);
     }
 
@@ -204,9 +209,9 @@ public class EvaluateXPathAvroMultiNode extends AbstractProcessor {
         final XPathFactory factory = factoryRef.get();
         final XPathEvaluator xpathEvaluator = (XPathEvaluator) factory.newXPath();
         final Map<String, XPathExpression> attributeToXPathMap = new HashMap<>();
-        final String xmlField = context.getProperty(XML_DECODE_FIELD).getValue();
+        final String extendXmlField = context.getProperty(XML_TYPE_FIELD).getValue();
         for (final Map.Entry<PropertyDescriptor, String> entry : context.getProperties().entrySet()) {
-            if (!entry.getKey().isDynamic()) { //get dynamic properties
+            if (!entry.getKey().isDynamic()) {
                 continue;
             }
             final XPathExpression xpathExpression;
@@ -257,21 +262,20 @@ public class EvaluateXPathAvroMultiNode extends AbstractProcessor {
 
             session.read(flowFile, rawIn -> {
                 try (final InputStream in = new BufferedInputStream(rawIn)) {
-                    //1.接收前面传来的AVRO
-                    final DataFileStream<GenericRecord> reader = new DataFileStream<>(in, new GenericDatumReader<GenericRecord>());
-                    GenericRecord currRecord;
-                    Schema schema = reader.getSchema();
-                    if (schema.getField(xmlField) == null) {
-                        throw new AvroRuntimeException("Not a record: "+this);
-                    }
-                    while (reader.hasNext()) {
-                        currRecord = reader.next();
-                        //2.得到每一次的xml
-                        String xml = currRecord.get(xmlField).toString();
-
-                    }
                     final List<Source> rootList = (List<Source>) slashExpression.evaluate(new InputSource(in), NODESET);
                     sourceRef.set(rootList.get(0));
+                    final DataFileStream<GenericRecord > reader = new DataFileStream<>(in, new GenericDatumReader<GenericRecord>());
+                    GenericRecord currRecord;
+                    Schema schema = reader.getSchema();
+                    List<Schema.Field> fieldList = schema.getFields();
+                    while (reader.hasNext()) {
+                        currRecord = reader.next();//get single gr
+                        String extendXml = currRecord.get(extendXmlField).toString();
+
+                    }
+                    if (schema.getField(extendXmlField) == null) {
+                        throw new AvroRuntimeException("Not a record: "+this);
+                    }
                 } catch (final Exception e) {
                     error.set(e);
                 }
