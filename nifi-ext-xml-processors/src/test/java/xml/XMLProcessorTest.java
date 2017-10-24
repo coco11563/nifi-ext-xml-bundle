@@ -49,17 +49,17 @@ public class XMLProcessorTest {
     private DataFileReader dr;
     @Before
     public void init() throws IOException {
-        dr = new DataFileReader<GenericData>(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources\\2269418313656416.avro"), new GenericDatumReader<>());
+//        dr = new DataFileReader<GenericData>(new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources\\2269418313656416.avro"), new GenericDatumReader<>());
         //done gr init
-        File f = new File(
-                "C:\\Users\\sha0w\\IdeaProjects\\" +
-                        "nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources" +
-                        "\\2269418313656416.avro");
-        FileInputStream fis = new FileInputStream(f);
-        BufferedInputStream bfs = new BufferedInputStream(fis);
-
-        DataFileStream<GenericRecord> dfs = new DataFileStream<GenericRecord>(bfs , new GenericDatumReader<GenericRecord>());
-        System.out.println(dfs.getSchema().getFields().size());
+//        File f = new File(
+//                "C:\\Users\\sha0w\\IdeaProjects\\" +
+//                        "nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\main\\resources" +
+//                        "\\2269418313656416.avro");
+//        FileInputStream fis = new FileInputStream(f);
+//        BufferedInputStream bfs = new BufferedInputStream(fis);
+//
+//        DataFileStream<GenericRecord> dfs = new DataFileStream<GenericRecord>(bfs , new GenericDatumReader<GenericRecord>());
+//        System.out.println(dfs.getSchema().getFields().size());
     }
     @Test
     public void testRunnerSPX() throws IOException {
@@ -119,11 +119,11 @@ public class XMLProcessorTest {
                 "/product/pub_basic/list_ei#list_sci#" +
                 "/product/pub_basic/list_ssci#" +
                 "/product/pub_basic/list_istp");
-        File f = new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\test\\resources\\2254594220071158 (6).avro");
-        FileInputStream fis = new FileInputStream(f);
-        BufferedInputStream bfs = new BufferedInputStream(fis);
-        testRunnerPPX.enqueue(bfs);
-        testRunnerPPX.run();
+//        File f = new File("C:\\Users\\sha0w\\IdeaProjects\\nifi-ext-xml-bundle\\nifi-ext-xml-processors\\src\\test\\resources\\2254594220071158 (6).avro");
+//        FileInputStream fis = new FileInputStream(f);
+//        BufferedInputStream bfs = new BufferedInputStream(fis);
+//        testRunnerPPX.enqueue(bfs);
+//        testRunnerPPX.run();
     }
 
     private final static String xml_5 = "<product>\n" +

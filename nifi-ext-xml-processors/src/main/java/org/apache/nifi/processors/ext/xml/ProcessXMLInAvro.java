@@ -35,7 +35,7 @@ import static org.apache.nifi.processors.ext.xml.SeparateAvroInXML.UTF8_BOM;
 // {[id + basic xml + extend xml + type](每个attr一个ff) -> [id + basic field + extend field(option in dynamic field)]}
 @Tags({"Avro","XML","process","Sha0w"})
 @CapabilityDescription("通过解析输入的Avro文件中的XML字段内" +
-        "（xml field）的指定节点（dynamic field），生成新的Avro文件")
+        "（xml field）的指定节点（dynamic field），生成新的Avro文件 更新后版本")
 @DynamicProperty(name = "A FlowFile attribute(if <Destination> is set to 'flowfile-attribute'", value = "An XPath expression",
         description = "If <Destination>='flowfile-attribute' "
                 + "then the FlowFile attribute is set to the result of " +

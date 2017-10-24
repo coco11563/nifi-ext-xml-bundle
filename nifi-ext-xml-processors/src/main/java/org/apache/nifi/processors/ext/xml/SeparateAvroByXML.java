@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 // {id+xml -> [id + basic xml + extend xml + type](每个attr一个ff)}
 @Tags({"Avro","XML","Split","sha0w"})
 @CapabilityDescription("从其他地方得到一个AVRO流，通过这个处理器，你可以指定这个Avro中的一个XML字段，该处理器会解析这个XML" +
-        "字段，并在该XML中寻找一个你输入的代表路径的XML字段名称，并通过这个字段名称将输入的Avro文件分成不同的几份")
+        "字段，并在该XML中寻找一个你输入的代表路径的XML字段名称，并通过这个字段名称将输入的Avro文件分成不同的几份 老版本")
 @WritesAttribute(attribute = "type", description = "This processor adds user-defined attributes if the <Destination> property is set to flowfile-attribute.")
 public class SeparateAvroByXML extends AbstractProcessor{
     public static final String UTF8_BOM = "\uFEFF";     //http://www.rgagnon.com/javadetails/java-handle-utf8-file-with-bom.html
